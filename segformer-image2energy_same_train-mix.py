@@ -15,19 +15,19 @@ import random
 import segmentation_models_pytorch as smp
 
 # ---------------- Config ----------------
-NUM_CLASSES = 4  # 能源分级：0..3
-TARGET_SIZE = (512, 512)  # SegFormer 输入图像分辨率
-LABEL_SIZE = (20, 20)  # 能源标签分辨率
+NUM_CLASSES = 4  
+TARGET_SIZE = (512, 512)  
+LABEL_SIZE = (512, 512)  
 
-# 显卡设置
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "4"
 
-# 基础数据路径
+
 DATA_ROOT = Path("~/tasks/buildingenergyconsumption").expanduser()
 TRAIN_JSON = "train-5cities-merge_filtered-500.json"
 VAL_JSON = "test-5cities-merge_filtered-500.json"
 
-# 【新增】合成数据配置
+
 AUX_IMG_DIR = "../../output_image/5city_test-one/5-city-lastlas"
 AUX_LABEL_DIR = "../../output_image/5city_test-one/5-city-lastlas"
 
@@ -38,12 +38,11 @@ CITY_LABEL_MAP = {
     "Busan": "energy_labels_blocks5x5_classes_2025_new_merge",
 }
 
-# 【核心修改】合成数据比例搜索空间
-# 例如：0.2 表示加入合成数据总量的 20% 注入训练集
-AUX_RATE_LIST = [0.01,0.4,0.5, 1.0]
+
+AUX_RATE_LIST = [0.01,0.5, 1.0]
 data_rate=0.4
 REDUCE_SEED = 42
-MAX_EPOCHS = 10
+MAX_EPOCHS = 30
 BATCH_SIZE = 16
 LEARNING_RATE = 3e-4
 
@@ -52,7 +51,7 @@ OUT_ROOT.mkdir(parents=True, exist_ok=True)
 Path("./runs_energy_segformer_aux/checkpoints_segformer").mkdir(parents=True, exist_ok=True)
 
 
-# ---------------- Utils (路径解析与数据加载) ----------------
+
 
 def resolve_sat_path(path_str: str, root_dir: Path) -> Path:
     p = Path(path_str)
@@ -98,7 +97,6 @@ def load_data_from_jsonl(json_path: str, data_root: Path) -> List[Tuple[Path, Pa
 
 
 def get_forbidden_stems(json_path: str) -> set:
-    """提取验证集中的 ID，防止合成数据泄露"""
     stems = set()
     p = Path(json_path)
     if not p.exists(): return stems
@@ -115,7 +113,6 @@ def get_forbidden_stems(json_path: str) -> set:
 
 
 def get_train_keys(json_path: str) -> set:
-    """辅助函数：从训练集 JSON 中提取 (城市名, ID) 组合"""
     keys = set()
     p = Path(json_path)
     if not p.exists():
@@ -125,11 +122,9 @@ def get_train_keys(json_path: str) -> set:
         for line in f:
             try:
                 rec = json.loads(line)
-                # 清洗城市名（去除空格，保持与文件名一致）
                 city = rec.get("city", "").replace(" ", "")
                 target_path = rec.get("target")
                 if target_path:
-                    # 提取 target 的文件名作为 ID (例如: top33_left16_r2_d0)
                     id_str = Path(target_path).stem
                     keys.add((city, id_str))
             except:
@@ -139,18 +134,11 @@ def get_train_keys(json_path: str) -> set:
 
 def scan_pairs_aux(aux_img_dir: str, aux_label_dir: str, exclude_json_path: str = None, train_json_path: str = None) -> \
 List[Tuple[Path, Path]]:
-    """
-    扫描合成数据：
-    1. 排除验证集泄露数据 (exclude_json_path)
-    2. 【新增】必须在训练集中存在的图片 (train_json_path)
-    """
     aux_img_dir, aux_label_dir = Path(aux_img_dir), Path(aux_label_dir)
     items = []
 
-    # 1. 加载黑名单 (验证集 IDs，用于防泄露)
     forbidden_stems = get_forbidden_stems(exclude_json_path) if exclude_json_path else set()
 
-    # 2. 加载白名单 (训练集 City + ID 组合)
     train_keys = get_train_keys(train_json_path) if train_json_path else set()
     if train_json_path:
         print(f"[Filter] Loaded {len(train_keys)} valid (City, ID) pairs from training set.")
@@ -163,8 +151,7 @@ List[Tuple[Path, Path]]:
         for f in sorted(aux_img_dir.glob(pat)):
             if "label" in f.name: continue
 
-            # 正则匹配 stem 和样本序号 k
-            # 示例: Lyon_2KM-hint_image_merge-top33_left28_r1_d0.png_sample0.jpg
+
             m = re.match(r"^(?P<stem>.+?)(?:\.energy)?\.png_sample(?P<k>\d+)\.", f.name)
             if not m: m = re.match(r"^(?P<stem>.+?)_sample(?P<k>\d+)\.", f.name)
             if not m: continue
@@ -172,27 +159,22 @@ List[Tuple[Path, Path]]:
             stem = m.group("stem")
             k = m.group("k")
 
-            # --- 解析合成数据的城市和 ID ---
-            # 根据格式，城市通常在第一个下划线前，ID 在最后一个横杠后
+
             try:
-                city = stem.split('_')[0]  # 例如 Lyon
-                id_str = stem.split('-')[-1]  # 例如 top33_left28_r1_d0
+                city = stem.split('_')[0]  #  Lyon
+                id_str = stem.split('-')[-1]  #  top33_left28_r1_d0
             except IndexError:
                 continue
 
-            # A. 泄露检查 (验证集黑名单)
             if any(bad_id in stem for bad_id in forbidden_stems):
                 leak_count += 1
                 continue
 
-            # B. 【核心修改】训练集存在检查
-            # 如果指定了训练集路径，则进行强匹配
             if train_json_path:
                 if (city, id_str) not in train_keys:
                     not_in_train_count += 1
                     continue
 
-            # 寻找对应的 Label 文件
             p_candidates = [
                 # aux_label_dir / f"{stem}.energy.energy_sample{k}.label.png",
                 aux_label_dir / f"{stem}.energy_sample{k}.label.png",
@@ -206,7 +188,6 @@ List[Tuple[Path, Path]]:
     print(f"[AuxScan] Found {len(items)} valid synthetic pairs.")
     if train_json_path:
         print(f"[AuxScan] Filtered: {leak_count} leaks, {not_in_train_count} samples not found in training set.")
-
     return items
 
 
@@ -299,7 +280,6 @@ def metrics_from_cm(cm):
 
 
 def estimate_class_weights(items: List):
-    # 抽样估计类别权重
     dataset = UrbanEnergyDataset(items)
     counts = np.zeros(NUM_CLASSES, dtype=np.int64)
     n = min(len(dataset), 500)
@@ -307,19 +287,15 @@ def estimate_class_weights(items: List):
         _, y = dataset[i]
         for c in range(NUM_CLASSES): counts[c] += (y == c).sum().item()
     inv = 1.0 / np.clip(counts / counts.sum(), 1e-4, None)
-    inv = inv / inv.mean()
-    inv[0] *= 0.5  # 降低背景权重
+    inv = inv / inv.mean() 
     return torch.tensor(inv, dtype=torch.float32)
 
 
 # -------------- Core Logic: Mixing --------------
 
 def build_train_val_mixed(aux_rate: float):
-    # 1. 加载真实验证集
     val_real = load_data_from_jsonl(VAL_JSON, DATA_ROOT)
-    # 2. 加载真实训练集
     train_real = load_data_from_jsonl(TRAIN_JSON, DATA_ROOT)
-    # 3. 扫描合成数据（带防泄露）
     aux_all = scan_pairs_aux(AUX_IMG_DIR, AUX_LABEL_DIR, VAL_JSON)
 
     aux_used = []
@@ -417,4 +393,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
