@@ -4,8 +4,7 @@ from tqdm import tqdm
 from pathlib import Path
 import json
 
-# ----------------- 复用你的配置和路径解析函数 -----------------
-# 请确保以下变量与你主代码一致
+
 DATA_ROOT = Path("~/tasks/buildingenergyconsumption").expanduser()
 TRAIN_JSON = "train-5cities-merge_filtered-500.json"
 CITY_LABEL_MAP = {
@@ -14,7 +13,7 @@ CITY_LABEL_MAP = {
     "Boston": "energy_labels_blocks5x5_classes_2025_new_merge",
     "Busan": "energy_labels_blocks5x5_classes_2025_new_merge",
 }
-CITY_SUBDIR_MAP = {  # 只需要用到 resolve_city_and_paths 需要的字典
+CITY_SUBDIR_MAP = {  
     "NewYorkCity": "NewYorkCity_2KM",
     "Lyon": "Lyon_2KM",
     "Boston": "Boston_2KM",
@@ -23,7 +22,7 @@ CITY_SUBDIR_MAP = {  # 只需要用到 resolve_city_and_paths 需要的字典
 HINT_FEAT_FOLDER = "hint_image_merge"
 
 
-# (直接复制你代码里的 resolve_city_and_paths 和 load_data_from_jsonl 函数)
+
 def resolve_city_and_paths(json_rec: dict, root_dir: Path):
     sat_str = json_rec.get("target")
     if not sat_str: return None
@@ -66,25 +65,19 @@ def load_data_from_jsonl(json_path: str, data_root: Path):
     return items
 
 
-# ----------------- 核心统计逻辑 -----------------
+
 def calculate_thresholds():
-    print("正在加载训练集列表...")
     train_items = load_data_from_jsonl(TRAIN_JSON, DATA_ROOT)
 
     valid_pixels = []
 
-    # 为了节省内存，我们不必读入整张图，可以适当降采样，或者只抽取非零值
-    # 如果内存足够 (16GB+)，对于500张图可以直接存所有非零像素
-    print(f"正在扫描 {len(train_items)} 张图片的像素分布...")
 
     for _, label_path in tqdm(train_items):
         try:
             with Image.open(label_path) as img:
                 if img.mode != "L": img = img.convert("L")
-                # 保持原始分辨率或resize都可以，建议保持原始以免插值改变数值
                 arr = np.array(img)
 
-                # 核心：只提取非 0 的像素 (即有建筑能耗的区域)
                 non_zero = arr[arr > 0]
 
                 if len(non_zero) > 0:
@@ -92,27 +85,22 @@ def calculate_thresholds():
         except Exception as e:
             print(f"Error reading {label_path}: {e}")
 
-    if not valid_pixels:
-        print("错误：没有找到任何非零像素值，请检查标签图片是否全黑。")
-        return
 
-    # 将所有列表合并为一个巨大的数组
     all_values = np.concatenate(valid_pixels)
 
-    # 计算 33.3% 和 66.6% 分位点
+    # compute 33.3% and 66.6% 
     t1 = np.percentile(all_values, 33.33)
     t2 = np.percentile(all_values, 66.66)
 
     print("\n" + "=" * 40)
-    print(f"【统计结果】")
-    print(f"非零像素总数: {len(all_values)}")
-    print(f"最小值: {all_values.min()}, 最大值: {all_values.max()}, 平均值: {all_values.mean():.2f}")
+    print(f"no-zero pixel: {len(all_values)}")
+    print(f"min: {all_values.min()}, max: {all_values.max()}, average: {all_values.mean():.2f}")
     print(f"-" * 40)
-    print(f"建议阈值 T1 (33%): {t1}")
-    print(f"建议阈值 T2 (66%): {t2}")
-    print("请将这两个值填入你的 Config 中。")
+    print(f" T1 (33%): {t1}")
+    print(f" T2 (66%): {t2}")
     print("=" * 40)
 
 
 if __name__ == "__main__":
+
     calculate_thresholds()
