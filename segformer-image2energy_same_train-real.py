@@ -18,7 +18,7 @@ import segmentation_models_pytorch as smp
 # ---------------- Config ----------------
 NUM_CLASSES = 4         
 TARGET_SIZE = (512, 512) 
-LABEL_SIZE = (20, 20)    
+LABEL_SIZE = (512, 512)    
 
 DATA_ROOT = Path("~/tasks/buildingenergyconsumption").expanduser()
 os.environ["CUDA_VISIBLE_DEVICES"] = "3"
@@ -181,7 +181,6 @@ def estimate_class_weights(dataset: torch.utils.data.Dataset, max_samples: int =
     freq = counts / counts.sum().clip(1)
     inv = 1.0 / np.clip(freq, 1e-4, None)
     inv = inv / inv.mean()
-    inv[0] *= 0.5  
 
     print("[ClassFreq]", counts, "-> weights:", np.round(inv, 3))
     return torch.tensor(inv, dtype=torch.float32)
@@ -266,7 +265,7 @@ def run_one_ratio(reduce_ratio: float):
     best_mIoU = -1.0
     log_csv = out_dir / f"train_log_{tag}.csv"
 
-    # CSV：加入每类 IoU + mDice
+    # CSV： IoU + mDice
     with open(log_csv, "w", encoding="utf-8") as f:
         iou_headers = ",".join([f"iou_c{i}" for i in range(NUM_CLASSES)])
         f.write(f"epoch,train_loss,val_acc,mIoU,mDice,{iou_headers}\n")
@@ -326,4 +325,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
