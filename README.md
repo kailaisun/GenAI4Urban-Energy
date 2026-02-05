@@ -33,14 +33,20 @@ The dataset is built from publicly available global sources:
 
 #### Dataset Download
 
-[MUSE](https://huggingface.co/datasets/skl24/MUSE)
+Download [MUSE](https://huggingface.co/datasets/skl24/MUSE).
+
+We provide an example for create energy map:
+```shell
+create_building_energy_use_image.py
+```
+
 
 #### Dataset preparation
 ```shell
 python 5cities-merge_data_preprocess-all.py
 ```
 
-## Model Training
+## GenAI Model Training
 
 Please refer to the [UrbanControlnet](https://github.com/kailaisun/UrbanControlNet).
 
