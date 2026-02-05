@@ -16,9 +16,9 @@ from torchvision.transforms import functional as TF
 import segmentation_models_pytorch as smp
 
 # ---------------- Config ----------------
-NUM_CLASSES = 4          # 能源分级：0..3
-TARGET_SIZE = (512, 512) # 输入图像分辨率
-LABEL_SIZE = (20, 20)    # 能源标签分辨率
+NUM_CLASSES = 4         
+TARGET_SIZE = (512, 512) 
+LABEL_SIZE = (20, 20)    
 
 DATA_ROOT = Path("~/tasks/buildingenergyconsumption").expanduser()
 os.environ["CUDA_VISIBLE_DEVICES"] = "3"
@@ -114,7 +114,6 @@ class UrbanEnergyDataset(torch.utils.data.Dataset):
             img20 = img.convert("L").resize(LABEL_SIZE[::-1], resample=Image.NEAREST)
             raw_y = np.array(img20, dtype=np.int64)
 
-            # 0..255 -> 0..3（与你原逻辑一致）
             y_mapped = np.zeros_like(raw_y)
             y_mapped[(raw_y > 0) & (raw_y <= 6)] = 1
             y_mapped[(raw_y > 6) & (raw_y <= 12)] = 2
@@ -182,12 +181,12 @@ def estimate_class_weights(dataset: torch.utils.data.Dataset, max_samples: int =
     freq = counts / counts.sum().clip(1)
     inv = 1.0 / np.clip(freq, 1e-4, None)
     inv = inv / inv.mean()
-    inv[0] *= 0.5  # background 降权（与你原策略一致）
+    inv[0] *= 0.5  
 
     print("[ClassFreq]", counts, "-> weights:", np.round(inv, 3))
     return torch.tensor(inv, dtype=torch.float32)
 
-# -------------- Loss (替换为你 ResNet 版本的写法) --------------
+
 class DiceLoss(nn.Module):
     def __init__(self, num_classes: int, weight: torch.Tensor = None,
                  smooth: float = 1.0, eps: float = 1e-7):
@@ -260,7 +259,7 @@ def run_one_ratio(reduce_ratio: float):
     criterion_ce   = nn.CrossEntropyLoss(weight=class_weights)
     criterion_dice = DiceLoss(NUM_CLASSES, weight=class_weights).to(device)
 
-    # loss 权重（和你 ResNet 脚本一致的结构）
+
     ce_weight = 1.0
     dice_weight = 1.0
 
@@ -327,3 +326,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
