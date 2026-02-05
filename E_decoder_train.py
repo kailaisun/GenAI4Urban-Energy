@@ -68,8 +68,8 @@ def resolve_city_and_paths(json_rec: dict, root_dir: Path) -> Optional[Tuple[Pat
     if not sat_str: return None
 
     sat_path_obj = Path(sat_str)
-    filename_stem = sat_path_obj.stem  # 文件名不带后缀
-    filename_full = sat_path_obj.name  # 文件名带后缀
+    filename_stem = sat_path_obj.stem  
+    filename_full = sat_path_obj.name  
 
 
     city_raw = json_rec.get("city", "")
@@ -504,3 +504,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
