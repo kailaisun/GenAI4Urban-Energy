@@ -70,6 +70,8 @@ For computing metric (e.g., FID, SSIM, FSIM, PSNR, etc.), please see our another
 
 ## Acknowledgements
 
+This research is supported by the National Research Foundation (NRF), Prime Minister’s Office under its Campus for Research Excellence and Technological Enterprise (CREATE) programme.
+The Mens, Manus, and Machina (M3S) is an interdisciplinary research group (IRG) of the Massachusetts Institute of Technology and the Singapore MIT Alliance for Research and Technology (SMART) centre.
 
 ## Citation
 
