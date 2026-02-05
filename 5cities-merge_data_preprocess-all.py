@@ -5,21 +5,19 @@ from collections import defaultdict
 # ========= 可配置 =========
 BASE_PATH = Path(
     "/home/kailais/tasks/buildingenergyconsumption/"
-)  # 数据集根目录
+)  
 
-# 要处理的城市目录（必须与 BASE_PATH 下的子目录同名）
+
 CITIES = ["New York City", "Busan", "Boston", "Lyon"]
 
-BLOCK_SIZE = 5                         # 5×5 → 2km×2km
-STRIDE_ROW_IDX = 2                     # 行锚点索引步长
-STRIDE_COL_IDX = 2                     # 列锚点索引步长
-OUT_TRAIN = "./train-5cities-merge-all-nouse.json"  # 输出训练集（所有城市合并）
-OUT_TEST  = "./test-5cities-merge-all-nouse.json"   # 输出测试集
+BLOCK_SIZE = 5                         
+STRIDE_ROW_IDX = 2                     
+STRIDE_COL_IDX = 2                     
+OUT_TRAIN = "./train-5cities-merge-all.json" 
+OUT_TEST  = "./test-5cities-merge-all.json"   
 SEED = 0
 # =========================
 
-# 每个城市对应的 2KM 数据目录，例如：
-# New York City -> /home/.../NewYorkCity/NewYorkCity_2KM
 CITY_TILE_DIRS = {
     "New York City": BASE_PATH / "NewYorkCity" / "NewYorkCity_2KM",
     "Busan":         BASE_PATH / "Busan"       / "Busan_2KM",
@@ -28,14 +26,7 @@ CITY_TILE_DIRS = {
     "Lyon":          BASE_PATH / "Lyon"        / "Lyon_2KM",
 }
 
-# 每个城市的 3way 过滤目录（在城市根目录下，而不是 2KM 目录里）
-# CITY_FILTER_DIRS = {
-#     "New York City": BASE_PATH / "NewYorkCity" / "NewYorkCity_2KM" / "positives_side_by_side_energy_height_5x5_2025_merge_filter",
-#     "Busan":         BASE_PATH / "Busan"       / "Busan_2KM" / "positives_side_by_side_energy_height_5x5_2025_merge_filter",
-#     "Hong Kong":     BASE_PATH / "HongKong"    / "HongKong_2KM" / "positives_side_by_side_energy_height_5x5_2025_merge_filter",
-#     "Boston":        BASE_PATH / "Boston"      / "Boston_2KM" / "positives_side_by_side_energy_height_5x5_2025_merge_filter",
-#     "Lyon":          BASE_PATH / "Lyon"        / "Lyon_2KM" / "positives_side_by_side_energy_height_5x5_2020_merge_filter",
-# }
+
 
 CITY_FILTER_DIRS = {
     "New York City": BASE_PATH / "NewYorkCity" / "NewYorkCity_2KM" / "satellite_image_merge",
@@ -46,10 +37,6 @@ CITY_FILTER_DIRS = {
 }
 
 def list_geojsons(city_tiles_path: Path):
-    """
-    在 city_tiles_path (比如 NewYorkCity_2KM) 下递归查找
-    *density_landuse.geojson 文件。
-    """
     return sorted(
         [
             p for p in city_tiles_path.rglob("*.geojson")
@@ -63,7 +50,6 @@ def load_features(geojson_path: Path):
     return data.get("features", [])
 
 def group_by_rd(features):
-    """把 400m tile 按 (r,d) 分组；返回 {(r,d): {(row,col): props}}"""
     idx = defaultdict(dict)
     for ft in features:
         prop = ft.get("properties", {})
@@ -76,21 +62,17 @@ def group_by_rd(features):
 
 def find_blocks_strided(rc_to_prop: dict, block_w=5, block_h=5,
                         stride_row_idx=3, stride_col_idx=3):
-    """在 (row,col) 索引上步进，挑选 5×5 完整块的左上锚点 (top_row,left_col)。"""
     rows_sorted = sorted({r for r, _ in rc_to_prop.keys()})
     cols_sorted = sorted({c for _, c in rc_to_prop.keys()})
     blocks = []
     for i in range(0, len(rows_sorted), stride_row_idx):
         top_row = rows_sorted[i]
-        # 向下（row-1）要能取满 block_h 行
         if any((top_row - dy) not in rows_sorted for dy in range(block_h)):
             continue
         for j in range(0, len(cols_sorted), stride_col_idx):
             left_col = cols_sorted[j]
-            # 向右（col+1）要能取满 block_w 列
             if any((left_col + dx) not in cols_sorted for dx in range(block_w)):
                 continue
-            # 5×5 是否齐全
             full = True
             for dy in range(block_h):
                 for dx in range(block_w):
@@ -104,16 +86,11 @@ def find_blocks_strided(rc_to_prop: dict, block_w=5, block_h=5,
     return blocks
 
 def agg_metrics_for_block(rc_to_prop: dict, top_row:int, left_col:int, block_w:int, block_h:int):
-    """
-    聚合 25 格：
-      - BCR = Σ(built_surface_total) / Σ(cellarea) × 100（%）
-      - BVD = Σ(built_volume_total)  / Σ(cellarea)（m³/m²）
-      - Road Density = 简单算术平均(mean) 的 road_density（km/km²）
-    """
+
     sum_surface = 0.0      # m^2
     sum_volume  = 0.0      # m^3
     sum_area    = 0.0      # m^2
-    rd_list     = []       # 收集每格 road_density（若缺失则忽略）
+    rd_list     = []       
 
     for dy in range(block_h):
         for dx in range(block_w):
@@ -137,31 +114,25 @@ def agg_metrics_for_block(rc_to_prop: dict, top_row:int, left_col:int, block_w:i
 
     bcr = (sum_surface / sum_area) * 100.0          # %
     bvd = (sum_volume  / sum_area)                  # m^3/m^2
-    road_density = (sum(rd_list) / len(rd_list)) if rd_list else 0.0  # 简单平均
+    road_density = (sum(rd_list) / len(rd_list)) if rd_list else 0.0  
 
     return bcr, bvd, road_density
 
 def find_first_existing(base: Path, exts=(".jpg",".png",".tif",".tiff")):
-    """根据 base（不带后缀）找第一个存在的文件，找不到返回 None。"""
     for ext in exts:
         p = base.with_suffix(ext)
         if p.exists():
             return str(p)
     return None
 
-# === 每个城市自己的 3way 过滤目录 → 允许的 (row, col, r_tag, d_tag) 以及其重复次数 ===
+
 def load_filter_key_counts(filter_dir: Path):
-    """
-    读取像 10_16_r0_d0_3way.png 或 10_16_r0_d0_3way_copy1.png 这样的文件名，
-    返回一个 dict: {(top_row, left_col, 'r0', 'd0'): count, ...}
-    其中 count 是该组合在过滤目录中出现的次数（包括 copy）。
-    """
     key_counts = defaultdict(int)
     if filter_dir is None:
         return key_counts
 
     if not filter_dir.exists():
-        print(f"[WARN] 过滤目录不存在：{filter_dir}（该城市不做过滤）")
+        print(f"[WARN] ")
         return key_counts
 
     total_files = 0
@@ -169,7 +140,7 @@ def load_filter_key_counts(filter_dir: Path):
         if not p.is_file() or not p.name.endswith(".png"):
             continue
 
-        stem = p.stem  # 例如 '10_16_r0_d0_3way' 或 '10_16_r0_d0_3way_copy1'
+        stem = p.stem 
         parts = stem.split("_")
         if len(parts) < 4:
             continue
@@ -184,7 +155,7 @@ def load_filter_key_counts(filter_dir: Path):
         key_counts[(top_row, left_col, r_tag, d_tag)] += 1
         total_files += 1
 
-    print(f"[INFO] 从目录 {filter_dir} 读取到 {total_files} 个 PNG，对应 {len(key_counts)} 个 unique tile 组合")
+    print(f"[INFO] from {filter_dir} get {total_files}  PNG， {len(key_counts)}  unique tile")
     return key_counts
 
 def main():
@@ -196,7 +167,7 @@ def main():
         print(f"\n===== Processing city: {city} =====")
 
         count_num = 0
-        # 对应这个城市的 2KM 瓦片目录
+
         city_tiles_path = CITY_TILE_DIRS[city]
 
         sat_merge_dir    = city_tiles_path / "satellite_image_merge"
@@ -205,7 +176,7 @@ def main():
         height_merge_dir = city_tiles_path / "height_image_merge"
         dem_merge_dir = city_tiles_path / "dem_image_merge"
 
-        # 目录校验
+
         missing = []
         for d in [sat_merge_dir, hint_merge_dir, energy_merge_dir, height_merge_dir,dem_merge_dir]:
             if not d.exists():
@@ -214,13 +185,13 @@ def main():
             print(f"[WARN] 缺少目录：{missing}（跳过 {city}）")
             continue
 
-        # 该城市自己的过滤 key 和重复次数
+
         filter_dir = CITY_FILTER_DIRS.get(city)
         key_counts = load_filter_key_counts(filter_dir)  # dict: key -> dup_count
 
         geojson_files = list_geojsons(city_tiles_path)
         if not geojson_files:
-            print(f"[WARN] 未找到 GeoJSON：{city_tiles_path}")
+            print(f"[WARN] cannot find GeoJSON：{city_tiles_path}")
             continue
 
         for gj in geojson_files:
@@ -236,7 +207,7 @@ def main():
                     stride_row_idx=STRIDE_ROW_IDX, stride_col_idx=STRIDE_COL_IDX
                 )
                 print(
-                    f"[INFO] {city} {gj.name} 组 {r_tag}_{d_tag}："
+                    f"[INFO] {city} {gj.name}  {r_tag}_{d_tag}："
                     f"{len(blocks)} 个 {BLOCK_SIZE}×{BLOCK_SIZE}"
                 )
 
@@ -247,10 +218,9 @@ def main():
                         dup_count = key_counts.get(key, 0)
                         # print(dup_count)
                         if dup_count == 0:
-                            # 不在过滤目录里 → 跳过
+  
                             continue
                     else:
-                        # 没有过滤目录 → 每个 block 只用一次
                         dup_count = 1
 
                     metrics = agg_metrics_for_block(
@@ -280,14 +250,14 @@ def main():
                         f"The Road Density is {rd:.2f} kilometers per square kilometer."
                     )
 
-                    # 根据 dup_count 复制记录（香港会有 >1，其他城市一般都是 1）
+
                     for _ in range(dup_count):
                         all_rows.append({
                             "prompt": prompt,
-                            "target": target,     # 2km 卫星图
-                            "source": source,     # 2km hint 图
-                            "energy": energy,     # 2km energy 图
-                            "height": height,     # 2km height 图
+                            "target": target,   
+                            "source": source,     
+                            "energy": energy,    
+                            "height": height,    
                             "dem":dem,
                             "city": city,
                             "r": r_tag,
@@ -300,7 +270,6 @@ def main():
                         })
         print(count_num)
 
-    # ========= 全城市合并后统一打乱 & 划分 =========
     random.shuffle(all_rows)
     split = int(len(all_rows) * 0.8)
     train_rows = all_rows[:split]
