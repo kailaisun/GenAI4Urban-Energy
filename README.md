@@ -62,6 +62,7 @@ python H_decoder_train.py
 Training:
 ```shell
 python segformer-image2energy_same_train-real.py
+python segformer-image2energy_same_train-mix.py
 ```
 
 Testing:
