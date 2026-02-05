@@ -2,7 +2,7 @@ import os, json, random
 from pathlib import Path
 from collections import defaultdict
 
-# ========= 可配置 =========
+
 BASE_PATH = Path(
     "/home/kailais/tasks/buildingenergyconsumption/"
 )  
@@ -181,9 +181,6 @@ def main():
         for d in [sat_merge_dir, hint_merge_dir, energy_merge_dir, height_merge_dir,dem_merge_dir]:
             if not d.exists():
                 missing.append(str(d))
-        if missing:
-            print(f"[WARN] 缺少目录：{missing}（跳过 {city}）")
-            continue
 
 
         filter_dir = CITY_FILTER_DIRS.get(city)
