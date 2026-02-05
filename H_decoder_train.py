@@ -1,6 +1,6 @@
 import os
 
-# 指定 GPU
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import json
@@ -345,3 +345,4 @@ def run():
 if __name__ == "__main__":
 
     run()
+
