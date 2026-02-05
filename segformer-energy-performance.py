@@ -30,8 +30,7 @@ CITY_LABEL_MAP = {
     "Busan": "energy_labels_blocks5x5_classes_2025_new_merge",
 }
 
-# 你训练保存的 best ckpt（按你训练脚本命名改这里）
-# 例如：./runs_energy_segformer/r020/segformer-best_mIoU_r020.pt
+
 CHECKPOINT_PATH = Path("./runs_energy_segformer_aux/checkpoints_segformer/segformer_best_mix-aux_0p01.pt")
 
 # ---------------- Utils ----------------
@@ -87,9 +86,7 @@ def load_data_from_jsonl(json_path: str, data_root: Path) -> List[Tuple[Path, Pa
 
 # ---------------- Dataset ----------------
 class UrbanEnergyDataset(torch.utils.data.Dataset):
-    """
-    return_raw=True 时返回 raw_y（log1p(EU) 的 20x20 数值） + y_mask（0..3）
-    """
+
     def __init__(self, items: List[Tuple[Path, Path]], return_raw: bool = False):
         self.items = items
         self.return_raw = return_raw
@@ -185,8 +182,6 @@ def load_checkpoint_flexible(model: nn.Module, ckpt_path: Path, device):
     if isinstance(obj, dict) and "model" in obj and isinstance(obj["model"], dict):
         state = obj["model"]
     elif isinstance(obj, dict):
-        # 也可能直接是 state_dict（典型是 OrderedDict），但 torch.load 读出来仍是 dict
-        # 如果 keys 看起来像 'model.xxx' 就不处理；这里按常见情况直接当 state_dict
         state = obj
     else:
         raise RuntimeError("Unsupported checkpoint format")
@@ -258,3 +253,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
