@@ -17,9 +17,9 @@ git clone https://github.com/kailaisun/GenAI4Urban-Energy.git
 cd GenAI4Urban-Energy
 ```
 
-We recommend using Conda ([Miniconda](https://docs.conda.io/projects/miniconda/en/latest/index.html)) for installation. 
 
 ### Environment Installation 
+We recommend using Conda ([Miniconda](https://docs.conda.io/projects/miniconda/en/latest/index.html)) for installation. 
 
 Please refer to the [UrbanControlnet](https://github.com/kailaisun/UrbanControlNet).
 
@@ -62,9 +62,14 @@ python H_decoder_train.py
 
 ## Downstream Energy Prediction 
 
-Training:
+For example, we use Segformer as the baseline:
+Training on real-world data:
 ```shell
 python segformer-image2energy_same_train-real.py
+```
+
+Training on real-world and synthetic data:
+```shell
 python segformer-image2energy_same_train-mix.py
 ```
 
