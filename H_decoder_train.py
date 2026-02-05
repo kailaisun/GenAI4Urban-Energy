@@ -14,7 +14,7 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torchvision.transforms.functional as TF  # 用于增强
+import torchvision.transforms.functional as TF  
 
 import segmentation_models_pytorch as smp
 
@@ -42,7 +42,7 @@ CITY_SUBDIR_MAP = {
 
 HINT_FEAT_FOLDER = "hint_image_merge"
 REDUCE_SEED = 42
-OUT_ROOT = Path("./runs_height_improved")  # 新的输出目录
+OUT_ROOT = Path("./runs_height_improved")
 OUT_ROOT.mkdir(parents=True, exist_ok=True)
 
 
@@ -100,7 +100,7 @@ def load_data_from_jsonl(json_path: str, data_root: Path) -> List[Tuple[Path, Pa
 
 
 def compute_quantile_thresholds(items, sample_ratio=0.5):
-    # 增加采样比例到 50% 保证阈值更准
+
     print(f"\n[Thresholds] Calculating dynamic thresholds using {sample_ratio * 100}% of data...")
     pixel_values = []
     n_samples = max(10, int(len(items) * sample_ratio))
@@ -132,7 +132,7 @@ class UrbanHeightDataset(torch.utils.data.Dataset):
         self.items = items
         self.target_size = target_size
         self.thresholds = thresholds
-        self.is_train = is_train  # 区分训练和验证
+        self.is_train = is_train  
 
     def __len__(self):
         return len(self.items)
@@ -167,24 +167,18 @@ class UrbanHeightDataset(torch.utils.data.Dataset):
         feat = self._load_feat(f)
         label = self._load_label(p)
 
-        # ⭐⭐ 数据增强 (Data Augmentation) ⭐⭐
+
         if self.is_train:
-            # 随机水平翻转
             if random.random() > 0.5:
                 feat = TF.hflip(feat)
                 label = TF.hflip(label)
 
-            # 随机垂直翻转
             if random.random() > 0.5:
                 feat = TF.vflip(feat)
                 label = TF.vflip(label)
 
-            # 随机旋转 90度
             if random.random() > 0.5:
                 rot = random.choice([90, 180, 270])
-                # TF.rotate 需要 PIL 或 Tensor，这里都是 Tensor
-                # 注意：rotate 对 Tensor 可能需要 expand=False
-                # 简单起见，这里只用 flip，或者用 rot90
                 k = rot // 90
                 feat = torch.rot90(feat, k, [1, 2])
                 label = torch.rot90(label, k, [0, 1])
@@ -197,12 +191,8 @@ class SegFormerHeight(nn.Module):
     def __init__(self, in_chans, num_classes):
         super().__init__()
 
-        # ⭐⭐ 1. 输入归一化层 ⭐⭐
-        # 隐特征数值范围未知，BN 能让它们变成均值0方差1，极大加速收敛
         self.input_bn = nn.BatchNorm2d(in_chans)
 
-        # SegFormer architecture used as the backbone
-        #
         self.model = smp.Segformer(
             encoder_name="mit_b3",
             encoder_weights="imagenet",
@@ -211,7 +201,6 @@ class SegFormerHeight(nn.Module):
         )
 
     def forward(self, x):
-        # 先过 BN
         x = self.input_bn(x)
         out = self.model(x)
         if out.shape[-2:] != TARGET_SIZE:
@@ -249,7 +238,6 @@ def metrics_from_cm(cm):
 
 def estimate_class_weights(dataset):
     counts = np.zeros(NUM_CLASSES, np.int64)
-    # 扫多一点样本
     n = min(len(dataset), 2000)
     for i in tqdm(range(n), desc="[EstWeight]"):
         _, y = dataset[i]
@@ -284,7 +272,6 @@ def run():
 
     thresholds = compute_quantile_thresholds(train_items)
 
-    # ⭐ 开启 is_train=True 启用增强
     tr_set = UrbanHeightDataset(train_items, thresholds, TARGET_SIZE, is_train=True)
     val_set = UrbanHeightDataset(val_items, thresholds, TARGET_SIZE, is_train=False)
 
@@ -298,8 +285,7 @@ def run():
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4, weight_decay=1e-4)
 
-    # ⭐⭐ 2. 学习率调度器 ⭐⭐
-    # T_max 设为最大 epoch
+
     max_epochs = 30
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs, eta_min=1e-6)
 
@@ -327,7 +313,6 @@ def run():
             loss_sum += loss.item() * x.size(0)
             n_seen += x.size(0)
 
-        # 更新学习率
         scheduler.step()
         curr_lr = scheduler.get_last_lr()[0]
         tr_loss = loss_sum / n_seen
@@ -358,4 +343,5 @@ def run():
 
 
 if __name__ == "__main__":
+
     run()
