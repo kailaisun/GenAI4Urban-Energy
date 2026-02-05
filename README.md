@@ -2,7 +2,10 @@
 
 ## Introduction
 
-The repository contains the code implementation of the paper: SENSE: Satellite-based ENergy Synthesis for Sustainable Environment via Satellite Imagery.
+The code implementation for the paper: SENSE: Satellite-based ENergy Synthesis for Sustainable Environment via Satellite Imagery.
+
+
+<img src="fig1.png" width="90%">
 
 
 ## Installation
