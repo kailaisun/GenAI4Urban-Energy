@@ -1,6 +1,6 @@
 import os
 
-# 指定 GPU
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "6"
 
 from pathlib import Path
@@ -18,7 +18,7 @@ import random
 # ---------------- Config ----------------
 NUM_CLASSES = 4
 
-# 【新增配置】 定义类别名称，用于打印日志
+
 CLASS_NAMES = [
     "Background",
     "Building Energy 1",
@@ -26,14 +26,13 @@ CLASS_NAMES = [
     "Building Energy 3"
 ]
 
-# 数据根目录
+
 DATA_ROOT = Path("~/tasks/buildingenergyconsumption").expanduser()
 
-# 指定训练集和验证集的 JSON 路径
 TRAIN_JSON = "train-5cities-merge_filtered-500.json"
 VAL_JSON = "test-5cities-merge_filtered-500.json"
 
-# 【核心配置 1】Label 文件夹名称 (Y)
+
 CITY_LABEL_MAP = {
     "NewYorkCity": "energy_labels_blocks5x5_classes_new_merge",
     "Lyon": "energy_labels_blocks5x5_classes_2020_new_merge",
@@ -41,16 +40,9 @@ CITY_LABEL_MAP = {
     "Busan": "energy_labels_blocks5x5_classes_2025_new_merge",
 }
 
-# # 【核心配置 1】Label 文件夹名称 (Y)
-# CITY_LABEL_MAP = {
-#     "NewYorkCity": "NewYorkCity_2KM/energy_image_merge",
-#     "Lyon": "Lyon_2KM/energy_image_merge",
-#     "Boston": "Boston_2KM/energy_image_merge",
-#     "Busan": "Busan_2KM/energy_image_merge",
-# }
 
-# NewYorkCity/NewYorkCity_2KM/energy_image_merge/
-# 【核心配置 2】隐特征中间层子文件夹名称 (X 的中间层)
+
+
 CITY_SUBDIR_MAP = {
     "NewYorkCity": "NewYorkCity_2KM",
     "Lyon": "Lyon_2KM",
@@ -58,7 +50,7 @@ CITY_SUBDIR_MAP = {
     "Busan": "Busan_2KM",
 }
 
-# 隐特征文件夹通用名称
+
 HINT_FEAT_FOLDER = "hint_image_merge"
 
 REDUCE_SEED = 42
@@ -70,8 +62,8 @@ OUT_ROOT.mkdir(parents=True, exist_ok=True)
 # ---------------- Utils ----------------
 
 def resolve_city_and_paths(json_rec: dict, root_dir: Path) -> Optional[Tuple[Path, Path]]:
-    """根据 JSON 记录解析隐特征路径 (.npz) 和 标签路径 (.png/.tif)"""
-    # 1. 获取原始文件名 (通过 target 字段)
+
+
     sat_str = json_rec.get("target")
     if not sat_str: return None
 
@@ -79,7 +71,7 @@ def resolve_city_and_paths(json_rec: dict, root_dir: Path) -> Optional[Tuple[Pat
     filename_stem = sat_path_obj.stem  # 文件名不带后缀
     filename_full = sat_path_obj.name  # 文件名带后缀
 
-    # 2. 确定城市名
+
     city_raw = json_rec.get("city", "")
     city_clean = city_raw.replace(" ", "")
 
@@ -89,24 +81,14 @@ def resolve_city_and_paths(json_rec: dict, root_dir: Path) -> Optional[Tuple[Pat
                 city_clean = part
                 break
 
-    # 获取该城市的配置
+
     label_folder = CITY_LABEL_MAP.get(city_clean)
     subdir_name = CITY_SUBDIR_MAP.get(city_clean)
 
     if not label_folder or not subdir_name:
         return None
 
-    # 3. 构造路径
-    # (X) 隐特征路径: root / City / City_2KM / hint_image_merge / stem_gt.npz
-    feat_path = root_dir / city_clean / subdir_name / HINT_FEAT_FOLDER / (filename_stem + "_gt.npz")
 
-    # (Y) 标签路径: root / City / label_folder / full_filename
-    nrg_path = root_dir / city_clean / label_folder / filename_full
-
-    # print(f"feat_path: {feat_path}")
-    # print(f"nrg_path: {nrg_path}")
-
-    # 如果 Label .tif/.png 后缀不匹配的 fallback
     if not nrg_path.exists():
         nrg_path_png = nrg_path.with_suffix(".png")
         if nrg_path_png.exists():
@@ -116,7 +98,7 @@ def resolve_city_and_paths(json_rec: dict, root_dir: Path) -> Optional[Tuple[Pat
 
 
 def load_data_from_jsonl(json_path: str, data_root: Path) -> List[Tuple[Path, Path]]:
-    """读取 JSONL 并构建 (Feature, Label) 路径对"""
+
     items = []
     p = Path(json_path)
     if not p.exists():
@@ -190,14 +172,11 @@ class UrbanEnergyDataset(torch.utils.data.Dataset):
             if img.mode != "L":
                 img = img.convert("L")
 
-            # 1. Resize (使用 NEAREST 避免插值产生原本不存在的小数或中间值)
             img20 = img.resize(self.target_size[::-1], resample=Image.NEAREST)
             raw_y = np.array(img20, dtype=np.int64)
 
-            # 2. 创建一个全零的输出数组 (默认为 Class 0 Background)
             y_mapped = np.zeros_like(raw_y)
 
-            # 3. 根据阈值进行分桶 (Binning)
             # Class 1: 0 < val <= T1
             mask_c1 = (raw_y > 0) & (raw_y <= 6)
             y_mapped[mask_c1] = 1
@@ -415,29 +394,22 @@ def run_one_ratio(reduce_ratio: float):
     best_mDice = -1.0
     start_epoch = 1
 
-    # 【新增功能】 尝试加载 Checkpoint
-    # 优先加载 best_mIoU 模型
+
     resume_path = ckpt_dir / f"best_mIoU_{tag}.pt"
 
     if resume_path.exists():
         print(f"[Resume] Found checkpoint: {resume_path}")
-        # 加载到 CPU 避免显存问题，然后再 load_state_dict 到 device
+
         checkpoint = torch.load(resume_path, map_location=device)
 
-        # 1. 加载模型权重
         model.load_state_dict(checkpoint["model"])
 
-        # 2. 尝试加载优化器状态 (如果上次保存了)
         if "optimizer" in checkpoint:
             print("[Resume] Loading optimizer state...")
             optimizer.load_state_dict(checkpoint["optimizer"])
         else:
             print("[Resume] Warning: No optimizer state in checkpoint, starting optimizer fresh.")
 
-        # 3. 恢复 epoch 和 最佳指标
-        # 注意：如果加载的是 'best' 模型，它的 epoch 可能是之前的某一个 epoch (例如 35)，
-        # 而不是最后训练的 epoch。如果你想从那个最优状态继续微调，这没有问题。
-        # 我们从记录的 epoch + 1 开始。
         if "epoch" in checkpoint:
             start_epoch = checkpoint["epoch"] + 1
             print(f"[Resume] Resuming from Epoch {start_epoch}")
@@ -448,14 +420,12 @@ def run_one_ratio(reduce_ratio: float):
 
     else:
         print("[Resume] No checkpoint found, starting from scratch.")
-        # 如果是新训练，创建/覆盖日志文件
         log_csv = out_dir / f"train_log_{tag}.csv"
         with open(log_csv, "w", encoding="utf-8") as f:
             f.write("epoch,train_loss,val_acc,mIoU,mDice\n")
 
     log_csv = out_dir / f"train_log_{tag}.csv"
 
-    # 【修改循环】 从 start_epoch 开始
     for epoch in range(start_epoch, max_epochs + 1):
         model.train()
         loss_sum = 0.0;
@@ -488,30 +458,25 @@ def run_one_ratio(reduce_ratio: float):
                     pred = logits.argmax(1)
                     cm += confmat(pred, y)
 
-            # 获取所有类别的指标数组
             prec, rec, iou, acc = metrics_from_cm(cm)
             dice_c, mDice = dice_from_cm(cm)
             mIoU = float(iou.mean())
 
-            # 打印总体指标
             print(
                 f"{tag} | Ep {epoch:02d} | Loss={tr_loss:.4f} | Overall acc={acc:.4f} | mIoU={mIoU:.4f} | mDice={mDice:.4f}")
 
-            # 打印逐类指标
             print("-" * 60)
             for c in range(NUM_CLASSES):
                 c_name = CLASS_NAMES[c] if c < len(CLASS_NAMES) else f"Class {c}"
                 print(f"{c_name:<18}: P={prec[c]:.3f} R={rec[c]:.3f} IoU={iou[c]:.3f} Dice={dice_c[c]:.3f}")
             print("-" * 60)
 
-            # 记录 CSV (使用 'a' 模式追加)
             with open(log_csv, "a", encoding="utf-8") as f:
                 f.write(f"{epoch},{tr_loss:.6f},{acc:.6f},{mIoU:.6f},{mDice:.6f}\n")
 
-            # 【修改保存逻辑】 保存 optimizer 状态以便下次继续
             save_dict = {
                 "model": model.state_dict(),
-                "optimizer": optimizer.state_dict(),  # 新增保存优化器状态
+                "optimizer": optimizer.state_dict(),  
                 "epoch": epoch,
                 "mIoU": mIoU,
                 "mDice": mDice
@@ -537,4 +502,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
