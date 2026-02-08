@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The code implementation for the paper: SENSE: Satellite-based ENergy Synthesis for Sustainable Environment via Satellite Imagery.
+The code implementation for the paper: SENSE: Satellite-based ENergy Synthesis for Sustainable Environment.
 
 
 <img src="fig1.png" width="90%">
