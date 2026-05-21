@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The code implementation for the paper: SENSE: Satellite-based ENergy Synthesis for Sustainable Environment.
+The code implementation for the paper: [SENSE: Satellite-based ENergy Synthesis for Sustainable Environment.](https://arxiv.org/abs/2605.18101), which is  accepted by Proceedings of the 32nd ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD 2026).(Oral, Top 6% in AI4S Track).
 
 
 <img src="fig1.png" width="90%">
@@ -49,9 +49,15 @@ create_building_energy_use_image.py
 python 5cities-merge_data_preprocess-all.py
 ```
 
+
+
 ## GenAI Model Training
 
-Please refer to the [UrbanControlnet](https://github.com/kailaisun/UrbanControlNet).
+We have released our [SENSE model checkpoints](https://huggingface.co/skl24/SENSE). You can use it without the steps below.
+
+Otherwise, please refer to the [UrbanControlnet](https://github.com/kailaisun/UrbanControlNet).
+
+
 
 #### Finetuning decoder
 
